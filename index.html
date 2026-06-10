@@ -235,8 +235,14 @@ function parseDate(val){
   if(val===null||val===undefined||val==='')return null;
   if(typeof val==='number'){var d=new Date(Math.round((val-25569)*86400*1000));return new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));}
   var s=String(val).trim();
+  // Formato español: 8-ene-2026, 15-feb-2026, etc.
+  var meses={'ene':0,'feb':1,'mar':2,'abr':3,'may':4,'jun':5,'jul':6,'ago':7,'sep':8,'oct':9,'nov':10,'dic':11};
+  var esp=s.match(/^(\d{1,2})[-\/]([a-záéíóú]{3})[-\/](\d{4})$/i);
+  if(esp){var m=meses[esp[2].toLowerCase()];if(m!==undefined)return new Date(Date.UTC(+esp[3],m,+esp[1]));}
+  // DD/MM/YYYY o DD-MM-YYYY
   var dmy=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if(dmy)return new Date(Date.UTC(+dmy[3],+dmy[2]-1,+dmy[1]));
+  // YYYY-MM-DD
   var ymd=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
   if(ymd)return new Date(Date.UTC(+ymd[1],+ymd[2]-1,+ymd[3]));
   var d2=new Date(s);if(!isNaN(d2))return new Date(Date.UTC(d2.getFullYear(),d2.getMonth(),d2.getDate()));
@@ -376,10 +382,19 @@ function renderAll(){
     grupoMap[r.Equipo]=r.Grupo;pesoMap[r.Equipo]=parseFloat(r.Peso)||1;seccionMap[r.Equipo]=r.Seccion;
   });
 
+  // Mapa de normalización: nombre en minúsculas → nombre canónico de Horas
+  var equipoCanMap={};
+  horasData.forEach(function(r){equipoCanMap[r.Equipo.toLowerCase().trim()]=r.Equipo;});
+  // Función para resolver el nombre canónico de un equipo en Fallas
+  function canonico(nombre){
+    var k=(nombre||'').toLowerCase().trim();
+    return equipoCanMap[k]||nombre;
+  }
+
   var equipos=[...new Set(horasData.map(function(r){return r.Equipo;}))];
   var kpiEquipo={};
   equipos.forEach(function(eq){
-    var k=calcKPIs(fPeriodo.filter(function(r){return r.Equipo===eq;}),horasMap[eq]);
+    var k=calcKPIs(fPeriodo.filter(function(r){return canonico(r.Equipo)===eq;}),horasMap[eq]);
     if(k)kpiEquipo[eq]=k;
   });
 
@@ -388,7 +403,7 @@ function renderAll(){
   secciones.forEach(function(sec){
     var eqs=horasData.filter(function(r){return r.Seccion===sec;}).map(function(r){return r.Equipo;});
     var h=eqs.reduce(function(s,eq){return s+(horasMap[eq]||0);},0);
-    var k=calcKPIs(fPeriodo.filter(function(r){return eqs.indexOf(r.Equipo)>=0;}),h);
+    var k=calcKPIs(fPeriodo.filter(function(r){return eqs.indexOf(canonico(r.Equipo))>=0;}),h);
     if(k)kpiSeccion[sec]=k;
   });
 
